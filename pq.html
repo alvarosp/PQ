@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+		<style>
+			body {
+				margin: 0px;
+				padding: 0px;
+			}
+			
+			#myCanvas {
+				border: 1px solid #9C9898;
+			}
+			textarea{
+				height: 480px;
+			}
+		</style>
+		<script>
+			window.requestAnimFrame = (function(callback){
+				return window.requestAnimationFrame ||
+				window.webkitRequestAnimationFrame ||
+				window.mozRequestAnimationFrame ||
+				window.oRequestAnimationFrame ||
+				window.msRequestAnimationFrame ||
+				function(callback){
+					window.setTimeout(callback, 1000 / 60);
+				};
+			})();
+			window.addEventListener('keydown',doKeyDown,true);
+			var casillas = 8; //Grid is squared. Beware if (canvas.width / casillas) is not a round number.
+			var elements = 6; //Different elements in the grid.
+			var element = ["white","red", "yellow", "blue", "green", "black", "gray"];
+			var square_size = 40;
+			var grid_offsetX = 100;
+			var grid_offsetY = 50;
+			var canvas;
+			var context;
+			var textarea; //For info
+			var data; //Array with grid info
+			var click = new coor(0,0);
+
+			function doKeyDown(evt){
+				return;
+				//textarea.value = evt.keyCode;
+				if (evt.keyCode == 80) /* P key was pressed */
+					press_button();
+			}
+			
+			function info(){
+				
+			}
+
+			function update(){
+				
+			}
+
+			function solve(){
+				textarea.value = '';
+				var status;
+				do{
+					status = false;
+					//Check rows
+					for (i = 0; i < casillas; i++){
+						var tipo = data[i][0];
+						var counter = 1;
+						for (j = 1; j < casillas; j++){
+							if(data[i][j] == tipo){
+								counter++;
+							}else{
+								if(counter > 2){
+									//Found a Match
+									for(z = j - counter; z < j; z++){
+										data[i][z] = -Math.abs(data[i][z]);
+									}
+									status = true;
+								}
+								tipo = data[i][j];
+								counter = 1;
+							}
+						}
+						if(counter > 2){
+							//Found a Match
+							for(z = casillas - counter; z < casillas; z++){
+								data[i][z] = -Math.abs(data[i][z]);
+							}
+							status = true;
+						}
+					}
+					//Check columns
+					for (j = 0; j < casillas; j++){
+						var tipo = data[0][j];
+						var counter = 1;
+						for (i = 1; i < casillas; i++){
+							if(data[i][j] == tipo){
+								counter++;
+							}else{
+								if(counter > 2){
+									//Found a Match
+									for(z = i - counter; z < i; z++){
+										data[z][j] = -Math.abs(data[z][j]);
+									}
+									status = true;
+								}
+								tipo = data[i][j];
+								counter = 1;
+							}
+						}
+						if(counter > 2){
+							//Found a Match
+							for(z = casillas - counter; z < casillas; z++){
+								data[z][j] = -Math.abs(data[z][j]);
+							}
+							status = true;
+						}
+					}
+					textarea.value += printArray(data) + '\n';
+					//Clear matches
+					for (j = 0; j < casillas; j++){
+						for (i = 0; i < casillas; i++){
+							if(data[i][j] < 0){
+								data[i][j] = 0;
+								paintSq(i,j);
+								for(z = i; z > 0; z--){
+									data[z][j] = data[z-1][j];
+								}
+								data[0][j] = Math.floor(Math.random() * elements) + 1;
+							}
+						}
+					}
+				}while(status);
+				drawGrid()
+			}
+
+			function printArray(array){
+				var info = '';
+				for(i = 0 ; i < array.length; i++){
+					for(j = 0 ; j < array.length; j++){
+						info += array[i][j] + ',';
+					}
+					info += '\n';
+				}
+				return info;
+			}
+
+			function drawGrid(){
+				clearGrid();
+				for(i = 0 ; i < data.length; i++){
+					for(j = 0 ; j < data[i].length; j++){
+						paintSq(i,j);
+					}
+				}
+			}
+
+			function clearGrid(){
+				context.clearRect(grid_offsetX, grid_offsetY, casillas * square_size, casillas * square_size);
+			}
+
+			function paintSq(i, j){
+				context.beginPath();
+				context.rect(j * square_size + grid_offsetX, i * square_size + grid_offsetY, square_size, square_size);
+				context.fillStyle = element[data[i][j]];
+				context.fill();
+			}
+
+			function getSq(evt){
+				return new coor(Math.floor((evt.clientY - grid_offsetY)/ square_size), Math.floor((evt.clientX - grid_offsetX)/ square_size));
+			}
+
+			function mouseDown(evt){
+				textarea.value = 'Down en X: ' + evt.clientX + ' Y: ' + evt.clientY;
+				click = getSq(evt);
+			}
+
+			function mouseUp(evt){
+				textarea.value = 'Up en X: ' + evt.clientX + ' Y: ' + evt.clientY;
+				var tmp = getSq(evt);
+				if(click.x < 0 || click.x >= casillas || click.y < 0 || click.y >= casillas || tmp.x < 0 || tmp.x >= casillas || tmp.y < 0 || tmp.y >= casillas){
+					//Off bounds
+					textarea.value += '\n\nOff bounds';
+					return;
+				}
+				var tmp_data = data[tmp.x][tmp.y];
+				data[tmp.x][tmp.y] = data[click.x][click.y];
+				data[click.x][click.y] = tmp_data;
+				paintSq(tmp.x, tmp.y);
+				paintSq(click.x, click.y);
+				solve();
+			}
+
+			function coor(coor_x, coor_y){
+				this.x = coor_x;
+				this.y = coor_y;
+			}
+
+			window.onload = function(){
+				canvas = document.getElementById("myCanvas");
+				context = canvas.getContext('2d');
+				textarea = document.getElementById("textarea");
+				canvas.addEventListener('mousedown', mouseDown, false);
+				canvas.addEventListener('mouseup', mouseUp, false);
+				restart();
+			};
+
+			function restart(){
+				clearGrid();
+				data = new Array(casillas);
+				for (i = 0; i < data.length; i++) {
+  					data[i] = new Array(casillas);
+  					for (j = 0; j < data[i].length; j++) {
+						data[i][j] = Math.floor(Math.random() * elements) + 1;
+						paintSq(i,j);
+					}
+				}
+				solve();
+				info();
+			}
+		</script>
+	</head>
+	<body onmousedown="return false;">
+		<canvas id="myCanvas" width="500" height="500">
+			Your browser does not support HTML5 Canvas.
+		</canvas>
+		<textarea id="textarea"></textarea>
+	</body>
+</html>
